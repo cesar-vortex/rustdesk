@@ -3,6 +3,9 @@ name: Custom Windows build (Venturys)
 # Fork-only workflow: builds the RustDesk Flutter client for Windows x64 with the
 # Venturys self-hosted server and public key hardcoded at compile time.
 on:
+  push:
+    branches:
+      - custom/venturys-windows-build
   workflow_dispatch:
     inputs:
       upload-artifact:
