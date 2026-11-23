@@ -1,0 +1,34 @@
+name: Testar SSH da VPS (Venturys)
+
+# Workflow de teste: valida o secret VPS_SSH_KEY conectando na VPS.
+# Não faz build nem deploy — pode rodar a qualquer momento.
+on:
+  workflow_dispatch:
+
+jobs:
+  test-ssh:
+    name: Testar conexao SSH
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Conectar na VPS
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VPS_HOST:-}" ] || [ -z "${VPS_USER:-}" ] || [ -z "${VPS_SSH_KEY:-}" ]; then
+            echo "FALHOU: secret faltando (VPS_HOST/VPS_USER/VPS_SSH_KEY)."; exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if ! ssh-keygen -y -f ~/.ssh/id_deploy >/dev/null 2>&1; then
+            echo "FALHOU: VPS_SSH_KEY nao e uma chave privada OpenSSH valida (ou tem passphrase, ou foi colada incompleta)."; exit 1
+          fi
+          echo "Chave valida. Conectando em $VPS_USER@$VPS_HOST ..."
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+            "$VPS_USER@$VPS_HOST" \
+            'echo "CONEXAO OK: $(whoami)@$(hostname)"; echo "--- pasta de destino ---"; ls -ld ~/venturys-rmm/downloads 2>&1 || echo "AVISO: ~/venturys-rmm/downloads nao encontrada"'
+          echo "Teste concluido com sucesso."
