@@ -2286,6 +2286,7 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
   String? password;
   String? switchUuid;
   bool? forceRelay;
+  bool? viewOnly;
   var loginMethod = '';
   for (int i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -2340,6 +2341,9 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
       case '--relay':
         forceRelay = true;
         break;
+      case '--view-only':
+        viewOnly = true;
+        break;
       default:
         break;
     }
@@ -2355,7 +2359,8 @@ bool handleUriLink({List<String>? cmdArgs, Uri? uri, String? uriString}) {
               loginMethod: loginMethod,
               password: password,
               switchUuid: switchUuid,
-              forceRelay: forceRelay);
+              forceRelay: forceRelay,
+              viewOnly: viewOnly);
         });
         break;
       case UriLinkType.fileTransfer:
@@ -2540,6 +2545,7 @@ List<String>? urlLinkToCmdArgs(Uri uri) {
     String? switch_uuid = param["switch_uuid"];
     if (switch_uuid != null) args.addAll(['--switch_uuid', switch_uuid]);
     if (param["relay"] != null) args.add("--relay");
+    if (param["view-only"] == "true") args.add("--view-only");
     return args;
   }
 

@@ -48,6 +48,7 @@ class RemotePage extends StatefulWidget {
     this.switchUuid,
     this.forceRelay,
     this.isSharedPassword,
+    this.viewOnly,
   }) : super(key: key) {
     initSharedStates(id);
   }
@@ -63,6 +64,7 @@ class RemotePage extends StatefulWidget {
   final String? switchUuid;
   final bool? forceRelay;
   final bool? isSharedPassword;
+  final bool? viewOnly;
   final SimpleWrapper<State<RemotePage>?> _lastState = SimpleWrapper(null);
   final DesktopTabController? tabController;
 
@@ -206,6 +208,15 @@ class _RemotePageState extends State<RemotePage>
           sessionId: sessionId, arg: 'show-remote-cursor');
       _zoomCursor.value = bind.sessionGetToggleOptionSync(
           sessionId: sessionId, arg: kOptionZoomCursor);
+      // When launched in view-only mode from the panel link, start the
+      // session with keyboard/mouse control disabled.
+      if (widget.viewOnly == true &&
+          !bind.sessionGetToggleOptionSync(
+              sessionId: sessionId, arg: kOptionToggleViewOnly)) {
+        bind.sessionToggleOption(
+            sessionId: sessionId, value: kOptionToggleViewOnly);
+        _ffi.ffiModel.setViewOnly(widget.id, true);
+      }
     });
     DesktopMultiWindow.addListener(this);
     // if (!_isCustomCursorInited) {
