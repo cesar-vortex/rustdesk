@@ -541,4 +541,54 @@ jobs:
             ./SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.msi
           if-no-files-found: error
 
+  # Publica o instalador x64 no servidor RMM (pasta downloads/) e atualiza o
+  # manifest.json, para o auto-update distribuir o cliente na frota. Roda num
+  # runner Linux (ssh/scp nativos) e é isolado: se falhar, o build e os
+  # artefatos continuam válidos. A versão do cliente recebe o número da run,
+  # sempre crescente, para o agente (que compara pelo marcador local) detectar
+  # cada build novo. Requer os secrets VPS_HOST, VPS_USER e VPS_SSH_KEY.
+  deploy-to-rmm:
+    name: Deploy installer to RMM server (Venturys)
+    needs: [build-for-windows-flutter]
+    runs-on: ubuntu-22.04
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.upload-artifact }}
+    steps:
+      - name: Download Venturys installer
+        uses: actions/download-artifact@v4
+        with:
+          name: rustdesk-venturys-x86_64
+          path: ./dist
+      - name: Upload to VPS and update manifest
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          CLIENT_VERSION: "${{ env.VERSION }}.${{ github.run_number }}"
+        run: |
+          set -euo pipefail
+          if [ -z "${VPS_HOST:-}" ] || [ -z "${VPS_USER:-}" ] || [ -z "${VPS_SSH_KEY:-}" ]; then
+            echo "Secrets VPS_* ausentes; pulando o deploy."
+            exit 0
+          fi
+          EXE="$(ls ./dist/rustdesk-*-x86_64.exe | head -n1)"
+          if [ -z "$EXE" ]; then echo "instalador .exe não encontrado"; exit 1; fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          SSHOPTS=(-i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new)
+          DEST="venturys-rmm/downloads"
+          echo "Enviando $EXE -> $VPS_USER@$VPS_HOST:$DEST/rustdesk-venturys.exe (client=$CLIENT_VERSION)"
+          scp "${SSHOPTS[@]}" "$EXE" "$VPS_USER@$VPS_HOST:$DEST/rustdesk-venturys.exe"
+          ssh "${SSHOPTS[@]}" "$VPS_USER@$VPS_HOST" "cd '$DEST' && VERS='$CLIENT_VERSION' python3" <<'PY'
+          import json, os
+          p = 'manifest.json'
+          m = json.load(open(p)) if os.path.exists(p) else {}
+          m.setdefault('agent', {})
+          m['client'] = {'version': os.environ['VERS'], 'file': 'rustdesk-venturys.exe'}
+          json.dump(m, open(p, 'w'), indent=2)
+          print('manifest atualizado:', m)
+          PY
+          echo "Deploy concluído."
+
   # The fallback for the flutter version, we use Sciter for 32bit Windows.
